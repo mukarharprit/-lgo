@@ -1,0 +1,80 @@
+
+import numpy as np
+def getPoints(fPath="tsp.txt"):
+    with open(fPath, 'r') as fObj:
+        lines = fObj.readlines()
+        numPoints = int(lines[0].strip())
+        points = []
+        for line in lines[1:]:
+            points.append(tuple(map(float, line.split())))
+        return points, numPoints
+
+
+def computeDistances(points):
+    distArr = np.zeros((len(points), len(points)), dtype='float')
+
+    for i in range(len(points)):
+        x1, y1 = points[i]
+        for j in range(i, len(points)):
+            x2, y2 = points[j]
+            distArr[i, j] = distArr[j, i] = ((x1 - x2)**2 + (y1 - y2)**2)**0.5
+    return distArr
+
+
+def computeSets(maxCardinality):
+    sets = {}
+    for num in range(maxCardinality + 1):
+        sets[num] = []
+    for num in xrange(2**maxCardinality):
+        sets[bin(num).count('1')].append(num)
+    return sets
+
+def onesIndices(num):
+    onesIndices = []
+    bl = num.bit_length()
+    for i in range(bl+1):
+        if num & 0b1 == 1:
+            onesIndices.append(i)
+        num = num >> 1
+    return onesIndices
+
+def tsp(points, sets, distances):
+    subproblemArr = np.ones((2**(len(points)), len(points)),
+                                dtype='float')
+    subproblemArr = subproblemArr * float('inf')
+    for i in range(2**(len(points))):
+        subproblemArr[i, 0] = float('inf')
+    subproblemArr[1, 0] = 0
+
+    for m in range(2, len(points)+1):
+        
+        for routeSet in sets[m]:
+            if routeSet & 0b1 != 0b1:
+                continue
+            jCandidates = onesIndices(routeSet)
+            for j in jCandidates:
+                if jCandidates == 0:
+                    continue
+                xorMask = 2**j
+                previousSet = routeSet ^ xorMask
+                bestVal = float('inf')
+                for k in jCandidates:
+                    if k == j:
+                        continue
+                    val = subproblemArr[previousSet, k] + distances[k, j]
+                    bestVal = val if val < bestVal else bestVal
+                subproblemArr[routeSet, j] = bestVal
+    shortestRoute = float('inf')
+    for j in range(1, len(points)):
+        val = subproblemArr[2**len(points)-1, j] + distances[j, 0]
+        shortestRoute = val if val < shortestRoute else shortestRoute
+    return subproblemArr, shortestRoute
+
+def tspMain():
+    points, numPoints = getPoints()
+    sets = computeSets(len(points))
+    distances = computeDistances(points)
+    subproblems, minRouteVal = tsp(points, sets, distances)
+    print("Minimum route value: {}".format(minRouteVal))
+
+tspMain()
